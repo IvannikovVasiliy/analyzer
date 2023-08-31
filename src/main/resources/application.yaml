@@ -1,0 +1,11 @@
+server:
+  port: 8081
+
+kafka:
+  bootstrapAddress: localhost:9092
+  topic:
+    payments: payments
+    suspicious-payments: suspicious-payments
+    checked-payments: checked-payments
+  consumer:
+    groupId: analyzer-group-id

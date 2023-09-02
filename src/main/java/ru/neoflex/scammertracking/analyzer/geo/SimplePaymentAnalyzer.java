@@ -7,9 +7,9 @@ import ru.neoflex.scammertracking.analyzer.domain.dto.PaymentRequestDto;
 
 import java.time.LocalDateTime;
 
-public class GeoAnalyzer {
+public class SimplePaymentAnalyzer {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(GeoAnalyzer.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(SimplePaymentAnalyzer.class);
 
     public static boolean checkPayment(LastPaymentResponseDto lastPayment, PaymentRequestDto currentPayment) {
         LOGGER.info("received. lastPayment={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }.\n currentPayment={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date={} }",
@@ -22,15 +22,15 @@ public class GeoAnalyzer {
 
         double distance = GeoCoordinates.calculateDistance(lastGeoPoint, currentGeoPoint);
 
-        if (lastPaymentDate.plusHours(1).compareTo(currentPaymentDate) > 1 && distance > 10000) {
+        if (lastPaymentDate.plusHours(1).compareTo(currentPaymentDate)>=0 && distance > 10000) {
             LOGGER.warn("The payment with id={} is suspicious", currentPayment.getId());
             return false;
         }
-        if (lastPaymentDate.plusMinutes(1).compareTo(currentPaymentDate)>1 && distance > 50) {
+        if (lastPaymentDate.plusMinutes(1).compareTo(currentPaymentDate)>=0 && distance > 50) {
             LOGGER.warn("The payment with id={} is suspicious", currentPayment.getId());
             return false;
         }
-        if (lastPaymentDate.plusSeconds(1).compareTo(currentPaymentDate)>1 && distance > 1) {
+        if (lastPaymentDate.plusSeconds(1).compareTo(currentPaymentDate)>=0 && distance > 1) {
             LOGGER.warn("The payment with id={} is suspicious", currentPayment.getId());
             return false;
         }

@@ -9,3 +9,7 @@ kafka:
     checked-payments: checked-payments
   consumer:
     groupId: analyzer-group-id
+
+feign:
+  hystrix:
+    enabled: true

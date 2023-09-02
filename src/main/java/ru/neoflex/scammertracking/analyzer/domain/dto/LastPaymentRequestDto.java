@@ -2,20 +2,20 @@ package ru.neoflex.scammertracking.analyzer.domain.dto;
 
 public class LastPaymentRequestDto {
 
-    public LastPaymentRequestDto(String payerCardNumber) {
-        this.payerCardNumber = payerCardNumber;
+    public LastPaymentRequestDto(String cardNumber) {
+        this.cardNumber = cardNumber;
     }
 
     public LastPaymentRequestDto() {
     }
 
-    private String payerCardNumber;
+    private String cardNumber;
 
-    public String getPayerCardNumber() {
-        return payerCardNumber;
+    public String getCardNumber() {
+        return cardNumber;
     }
 
-    public void setPayerCardNumber(String payerCardNumber) {
-        this.payerCardNumber = payerCardNumber;
+    public void setCardNumber(String cardNumber) {
+        this.cardNumber = cardNumber;
     }
 }

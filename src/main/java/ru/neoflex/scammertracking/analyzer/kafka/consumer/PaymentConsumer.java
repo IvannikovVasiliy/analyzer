@@ -2,42 +2,51 @@ package ru.neoflex.scammertracking.analyzer.kafka.consumer;
 
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.openfeign.FeignClientsConfiguration;
 import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Service;
+import ru.neoflex.scammertracking.analyzer.dao.PaymentCacheDao;
 import ru.neoflex.scammertracking.analyzer.domain.dto.LastPaymentResponseDto;
 import ru.neoflex.scammertracking.analyzer.domain.dto.PaymentRequestDto;
 import ru.neoflex.scammertracking.analyzer.domain.dto.PaymentResponseDto;
+import ru.neoflex.scammertracking.analyzer.domain.entity.PaymentEntity;
+import ru.neoflex.scammertracking.analyzer.domain.model.Coordinates;
+import ru.neoflex.scammertracking.analyzer.domain.model.PaymentCacheResponseDto;
+import ru.neoflex.scammertracking.analyzer.error.exception.BadRequestException;
 import ru.neoflex.scammertracking.analyzer.error.exception.NotFoundException;
 import ru.neoflex.scammertracking.analyzer.feign.FeignService;
 import ru.neoflex.scammertracking.analyzer.geo.SimplePaymentAnalyzer;
 import ru.neoflex.scammertracking.analyzer.kafka.producer.PaymentProducer;
-import org.springframework.cloud.openfeign.FeignClientsConfiguration;
+import ru.neoflex.scammertracking.analyzer.service.PaymentCacheService;
+
+import java.time.LocalDateTime;
+import java.util.Date;
 
 @Service
 @Import(FeignClientsConfiguration.class)
 @Slf4j
 public class PaymentConsumer {
 
-//    private final Logger LOGGER = LoggerFactory.getLogger(PaymentConsumer.class);
-
     @Autowired
-    public PaymentConsumer(FeignService feignService, PaymentProducer paymentProducer, ModelMapper modelMapper) {
+    public PaymentConsumer(FeignService feignService, PaymentCacheService paymentCacheService, PaymentProducer paymentProducer, ModelMapper modelMapper, PaymentCacheDao paymentCacheDao) {
         this.feignService = feignService;
+        this.paymentCacheService = paymentCacheService;
+        this.paymentCacheDao = paymentCacheDao;
         this.paymentProducer = paymentProducer;
         this.modelMapper = modelMapper;
     }
 
     private FeignService feignService;
+    private PaymentCacheService paymentCacheService;
+    private PaymentCacheDao paymentCacheDao;
     private final PaymentProducer paymentProducer;
-    private final ModelMapper modelMapper;
+    private ModelMapper modelMapper;
 
     @Value("${kafka.topic.suspicious-payments}")
     private String suspiciousPaymentsTopic;
@@ -50,34 +59,94 @@ public class PaymentConsumer {
         log.info("received key={} paymentRequest={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }",
                 key, paymentRequest.getId(), paymentRequest.getPayerCardNumber(), paymentRequest.getReceiverCardNumber(), paymentRequest.getCoordinates().getLatitude(), paymentRequest.getCoordinates().getLongitude(), paymentRequest.getDate());
 
-        LastPaymentResponseDto lastPayment = null;
-        try {
-            lastPayment = feignService.getLastPayment(paymentRequest);
-        } catch (NotFoundException e) {
-            PaymentResponseDto paymentResult = modelMapper.map(paymentRequest, PaymentResponseDto.class);
+        PaymentResponseDto paymentResult = modelMapper.map(paymentRequest, PaymentResponseDto.class);
+        boolean isTrusted;
+        if (checkSuspicious(paymentRequest)) {
+            log.info("response. Sent message in topic={}", suspiciousPaymentsTopic);
             paymentResult.setTrusted(false);
             paymentProducer.sendMessage(suspiciousPaymentsTopic, paymentResult);
+            return;
+        }
 
-            log.warn(e.getMessage());
+        LastPaymentResponseDto lastPayment = null;
+        try {
+            lastPayment = getLastPayment(paymentRequest);
+        } catch (BadRequestException e) {
+            paymentResult = modelMapper.map(paymentRequest, PaymentResponseDto.class);
+            paymentResult.setTrusted(false);
+            paymentProducer.sendMessage(suspiciousPaymentsTopic, paymentResult);
+            log.warn("sent message with key={} in topic {}", key, suspiciousPaymentsTopic);
+            return;
+        } catch (NotFoundException e) {
+            paymentResult = modelMapper.map(paymentRequest, PaymentResponseDto.class);
+            paymentResult.setTrusted(false);
+            paymentProducer.sendMessage(suspiciousPaymentsTopic, paymentResult);
+            log.warn("sent message with key={} in topic {}", key, suspiciousPaymentsTopic);
             return;
         } catch (Exception e) {
             log.error(e.getMessage());
             throw new Exception(e.getMessage());
         }
 
-        PaymentResponseDto paymentResult = modelMapper.map(paymentRequest, PaymentResponseDto.class);
-        boolean isTrusted = SimplePaymentAnalyzer.checkPayment(lastPayment, paymentRequest);
+        isTrusted = SimplePaymentAnalyzer.checkPayment(lastPayment, paymentRequest);
         paymentResult.setTrusted(isTrusted);
 
         if (isTrusted) {
-            //feignService.savePayment(paymentRequest);
+            feignService.savePayment(paymentRequest);
             paymentProducer.sendMessage(checkedPaymentsTopic, paymentResult);
 
             log.info("response. Sent message in topic={}", checkedPaymentsTopic);
         } else {
             paymentProducer.sendMessage(suspiciousPaymentsTopic, paymentResult);
-            log.info("response. Sent message in topic={}, because latitude={}, longitude={}",
+            log.info("Response. Sent message in topic={}, because latitude={}, longitude={}",
                     suspiciousPaymentsTopic, paymentRequest.getCoordinates().getLatitude(), paymentRequest.getCoordinates().getLongitude());
         }
+    }
+
+    private LastPaymentResponseDto getLastPayment(PaymentRequestDto paymentRequest) throws RuntimeException, Exception {
+        LastPaymentResponseDto lastPaymentResponse = null;
+
+        PaymentCacheResponseDto paymentCache = paymentCacheService.findPaymentByPayerCardNumber(paymentRequest.getPayerCardNumber());
+        if (null != paymentCache) {
+            boolean isCachedDateDeprecated = LocalDateTime.now().isAfter(paymentCache.getDateUpdating().plusDays(1));
+            if (isCachedDateDeprecated) {
+                lastPaymentResponse = feignService.getLastPayment(paymentRequest);
+                paymentCacheService.update(paymentRequest);
+            } else {
+                lastPaymentResponse = LastPaymentResponseDto.builder()
+                        .id(paymentCache.getId())
+                        .payerCardNumber(paymentCache.getPayerCardNumber())
+                        .receiverCardNumber(paymentCache.getReceiverCardNumber())
+                        .coordinates(new Coordinates(paymentCache.getLatitude(), paymentCache.getLongitude()))
+                        .date(paymentCache.getDatePayment())
+                        .build();
+            }
+        } else {
+            lastPaymentResponse = feignService.getLastPayment(paymentRequest);
+            paymentCacheService.save(paymentRequest);
+        }
+
+        return lastPaymentResponse;
+    }
+
+    private boolean checkSuspicious(PaymentRequestDto paymentRequest) {
+        log.info("Check suspicious. paymentRequest={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }",
+                paymentRequest.getId(), paymentRequest.getPayerCardNumber(), paymentRequest.getReceiverCardNumber(), paymentRequest.getCoordinates().getLatitude(), paymentRequest.getCoordinates().getLongitude(), paymentRequest.getDate());
+
+        if (paymentRequest.getPayerCardNumber().length() < 6) {
+            log.info("Result validating. The message is suspicious, because the length of payerCardNumber is too short");
+            return true;
+        }
+        if (paymentRequest.getReceiverCardNumber().length() < 6) {
+            log.info("Result validating. The message is suspicious, because the length of receiverCardNumber is too short");
+            return true;
+        }
+        if (LocalDateTime.now().isBefore(paymentRequest.getDate())) {
+            log.info("Result validating. The message is suspicious, because date of paymentRequest more than current datetime");
+            return true;
+        }
+
+        log.info("Result validating. The message is valid");
+        return false;
     }
 }

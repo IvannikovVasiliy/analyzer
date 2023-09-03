@@ -1,11 +1,11 @@
 package ru.neoflex.scammertracking.analyzer.feign;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import ru.neoflex.scammertracking.analyzer.domain.dto.LastPaymentRequestDto;
 import ru.neoflex.scammertracking.analyzer.domain.dto.LastPaymentResponseDto;
 import ru.neoflex.scammertracking.analyzer.domain.dto.PaymentRequestDto;
+import ru.neoflex.scammertracking.analyzer.error.exception.BadRequestException;
 import ru.neoflex.scammertracking.analyzer.error.exception.NotFoundException;
 
 @Service
@@ -18,7 +18,7 @@ public class FeignService {
 
     private PaymentFeignClient paymentFeignClient;
 
-    public LastPaymentResponseDto getLastPayment(PaymentRequestDto paymentRequest) throws NotFoundException, Exception {
+    public LastPaymentResponseDto getLastPayment(PaymentRequestDto paymentRequest) throws NotFoundException, BadRequestException, Exception {
         LastPaymentRequestDto lastPaymentRequestDto = new LastPaymentRequestDto(paymentRequest.getPayerCardNumber());
         LastPaymentResponseDto lastPaymentResponseEntity = paymentFeignClient.getLastPaymentByReceiverCardNumber(lastPaymentRequestDto);
 

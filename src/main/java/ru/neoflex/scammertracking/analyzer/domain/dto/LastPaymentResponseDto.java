@@ -1,9 +1,11 @@
 package ru.neoflex.scammertracking.analyzer.domain.dto;
 
+import lombok.Builder;
 import ru.neoflex.scammertracking.analyzer.domain.model.Coordinates;
 
 import java.time.LocalDateTime;
 
+@Builder
 public class LastPaymentResponseDto {
 
     public LastPaymentResponseDto(long id, String payerCardNumber, String receiverCardNumber, Coordinates coordinates, LocalDateTime date) {

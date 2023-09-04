@@ -15,7 +15,6 @@ import ru.neoflex.scammertracking.analyzer.dao.PaymentCacheDao;
 import ru.neoflex.scammertracking.analyzer.domain.dto.LastPaymentResponseDto;
 import ru.neoflex.scammertracking.analyzer.domain.dto.PaymentRequestDto;
 import ru.neoflex.scammertracking.analyzer.domain.dto.PaymentResponseDto;
-import ru.neoflex.scammertracking.analyzer.domain.entity.PaymentEntity;
 import ru.neoflex.scammertracking.analyzer.domain.model.Coordinates;
 import ru.neoflex.scammertracking.analyzer.domain.model.PaymentCacheResponseDto;
 import ru.neoflex.scammertracking.analyzer.error.exception.BadRequestException;
@@ -26,7 +25,7 @@ import ru.neoflex.scammertracking.analyzer.kafka.producer.PaymentProducer;
 import ru.neoflex.scammertracking.analyzer.service.PaymentCacheService;
 
 import java.time.LocalDateTime;
-import java.util.Date;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @Import(FeignClientsConfiguration.class)
@@ -60,6 +59,8 @@ public class PaymentConsumer {
                 key, paymentRequest.getId(), paymentRequest.getPayerCardNumber(), paymentRequest.getReceiverCardNumber(), paymentRequest.getCoordinates().getLatitude(), paymentRequest.getCoordinates().getLongitude(), paymentRequest.getDate());
 
         PaymentResponseDto paymentResult = modelMapper.map(paymentRequest, PaymentResponseDto.class);
+        AtomicBoolean isCacheDeprecated = new AtomicBoolean();
+
         boolean isTrusted;
         if (checkSuspicious(paymentRequest)) {
             log.info("response. Sent message in topic={}", suspiciousPaymentsTopic);
@@ -70,7 +71,7 @@ public class PaymentConsumer {
 
         LastPaymentResponseDto lastPayment = null;
         try {
-            lastPayment = getLastPayment(paymentRequest);
+            lastPayment = getLastPayment(paymentRequest, isCacheDeprecated);
         } catch (BadRequestException e) {
             paymentResult = modelMapper.map(paymentRequest, PaymentResponseDto.class);
             paymentResult.setTrusted(false);
@@ -92,10 +93,25 @@ public class PaymentConsumer {
         paymentResult.setTrusted(isTrusted);
 
         if (isTrusted) {
-            feignService.savePayment(paymentRequest);
-            paymentProducer.sendMessage(checkedPaymentsTopic, paymentResult);
+            try {
+                feignService.savePayment(paymentRequest);
+            } catch (BadRequestException e) {
+                paymentProducer.sendMessage(suspiciousPaymentsTopic, paymentResult);
+                isTrusted = false;
+                log.info("Response. Sent message in topic={}, because the payment with id={} already exists",
+                        suspiciousPaymentsTopic, paymentRequest.getId());
+            } catch (Exception e) {
+                log.info("Internal error");
+                throw new Exception(e.getMessage());
+            }
 
-            log.info("response. Sent message in topic={}", checkedPaymentsTopic);
+            if (isTrusted) {
+                if (isCacheDeprecated.get()) {
+                    paymentCacheService.update(paymentRequest);
+                }
+                paymentProducer.sendMessage(checkedPaymentsTopic, paymentResult);
+                log.info("response. Sent message in topic={}", checkedPaymentsTopic);
+            }
         } else {
             paymentProducer.sendMessage(suspiciousPaymentsTopic, paymentResult);
             log.info("Response. Sent message in topic={}, because latitude={}, longitude={}",
@@ -103,15 +119,15 @@ public class PaymentConsumer {
         }
     }
 
-    private LastPaymentResponseDto getLastPayment(PaymentRequestDto paymentRequest) throws RuntimeException, Exception {
+    private LastPaymentResponseDto getLastPayment(PaymentRequestDto paymentRequest, AtomicBoolean isCachedDateDeprecated) throws RuntimeException, Exception {
         LastPaymentResponseDto lastPaymentResponse = null;
 
         PaymentCacheResponseDto paymentCache = paymentCacheService.findPaymentByPayerCardNumber(paymentRequest.getPayerCardNumber());
         if (null != paymentCache) {
-            boolean isCachedDateDeprecated = LocalDateTime.now().isAfter(paymentCache.getDateUpdating().plusDays(1));
-            if (isCachedDateDeprecated) {
+            boolean isDeprecated = LocalDateTime.now().isAfter(paymentCache.getDateUpdating().plusDays(1));
+            isCachedDateDeprecated.set(isDeprecated);
+            if (isCachedDateDeprecated.get()) {
                 lastPaymentResponse = feignService.getLastPayment(paymentRequest);
-                paymentCacheService.update(paymentRequest);
             } else {
                 lastPaymentResponse = LastPaymentResponseDto.builder()
                         .id(paymentCache.getId())

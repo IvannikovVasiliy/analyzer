@@ -1,7 +1,7 @@
 package ru.neoflex.scammertracking.analyzer.geo;
 
 import org.junit.jupiter.api.Test;
-import ru.neoflex.scammertracking.analyzer.Constants;
+import ru.neoflex.scammertracking.analyzer.utils.Constants;
 
 import static java.lang.Math.abs;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class GeoCoordinatesTest {
 
     @Test
-    public void testCalculateDistance() {
+    public void calculateDistanceTest() {
         final double ACCURACY = 50;
         final int TEST_DISTANCE_1 = 7300;
         final int TEST_DISTANCE_2 = 11650;

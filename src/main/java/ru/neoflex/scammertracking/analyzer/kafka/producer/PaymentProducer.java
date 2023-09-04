@@ -1,5 +1,6 @@
 package ru.neoflex.scammertracking.analyzer.kafka.producer;
 
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +12,8 @@ import ru.neoflex.scammertracking.analyzer.domain.dto.PaymentResponseDto;
 import java.util.concurrent.CompletableFuture;
 
 @Service
+@Slf4j
 public class PaymentProducer {
-
-    private final Logger LOGGER = LoggerFactory.getLogger(PaymentProducer.class);
 
     @Autowired
     public PaymentProducer(KafkaTemplate<String, PaymentResponseDto> kafkaTemplate) {
@@ -27,9 +27,11 @@ public class PaymentProducer {
 
         future.whenCompleteAsync((result, exception) -> {
             if (null != exception) {
-                LOGGER.error("error. Unable to send message={} due to : {}", payment, exception.getMessage());
+                log.error("error. Unable to send message with key={} message={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} } due to : {}",
+                        payment.getId(), payment.getId(), payment.getPayerCardNumber(), payment.getReceiverCardNumber(), payment.getCoordinates().getLatitude(), payment.getCoordinates().getLongitude(), payment.getDate(), exception.getMessage());
             } else {
-                LOGGER.info("Sent message={} with offset=={}", payment, result.getRecordMetadata().offset());
+                log.info("Sent message={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} } with offset=={}",
+                        payment.getId(), payment.getPayerCardNumber(), payment.getReceiverCardNumber(), payment.getCoordinates().getLatitude(), payment.getCoordinates().getLongitude(), payment.getDate(), result.getRecordMetadata().offset());
             }
         });
     }

@@ -1,4 +1,4 @@
-package ru.neoflex.scammertracking.analyzer.domain.model;
+package ru.neoflex.scammertracking.analyzer.domain.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;

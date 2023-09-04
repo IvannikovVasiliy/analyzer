@@ -14,7 +14,7 @@ import ru.neoflex.scammertracking.analyzer.domain.dto.PaymentRequestDto;
 public interface PaymentFeignClient {
 
     @PostMapping("/last-payment")
-    LastPaymentResponseDto getLastPaymentByReceiverCardNumber(@RequestBody LastPaymentRequestDto payment);
+    LastPaymentResponseDto getLastPaymentByPayerCardNumber(@RequestBody LastPaymentRequestDto payment);
 
     @PostMapping("/save")
     @ResponseStatus(value = HttpStatus.CREATED)

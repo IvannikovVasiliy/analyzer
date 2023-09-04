@@ -6,7 +6,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.modelmapper.ModelMapper;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import ru.neoflex.scammertracking.analyzer.domain.dto.LastPaymentRequestDto;
 import ru.neoflex.scammertracking.analyzer.domain.dto.LastPaymentResponseDto;
 import ru.neoflex.scammertracking.analyzer.domain.dto.PaymentRequestDto;
@@ -17,6 +19,7 @@ import ru.neoflex.scammertracking.analyzer.utils.Constants;
 import java.time.LocalDateTime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,9 +34,8 @@ class FeignServiceTest {
 
     @Test
     public void getLastPaymentTest() {
-        Coordinates coordinates = new Coordinates(Constants.TEST_COORDINATE_1, Constants.TEST_COORDINATE_1);
-        PaymentRequestDto paymentRequest = new PaymentRequestDto(1, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, coordinates, LocalDateTime.now());
-        LastPaymentResponseDto lastPaymentResponseDto = new LastPaymentResponseDto(1, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, coordinates, LocalDateTime.now());
+        PaymentRequestDto paymentRequest = new PaymentRequestDto(1, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now());
+        LastPaymentResponseDto lastPaymentResponseDto = new LastPaymentResponseDto(1, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now());
 
         when(paymentFeignClient.getLastPaymentByPayerCardNumber(Mockito.any())).thenReturn(lastPaymentResponseDto);
 
@@ -53,18 +55,8 @@ class FeignServiceTest {
 
         when(paymentFeignClient.getLastPaymentByPayerCardNumber(Mockito.any())).thenThrow(new NotFoundException("The payment with the cardNumber not found"));
 
-        try {
+        assertThrows(NotFoundException.class, () -> {
             feignService.getLastPayment(paymentRequest);
-        } catch (NotFoundException e) {
-            assert true;
-            return;
-        }
-
-        assert false;
-    }
-
-    @Test
-    public void savePaymentTest() {
-
+        });
     }
 }

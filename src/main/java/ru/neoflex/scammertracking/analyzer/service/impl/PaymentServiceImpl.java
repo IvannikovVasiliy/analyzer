@@ -1,5 +1,6 @@
 package ru.neoflex.scammertracking.analyzer.service.impl;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -16,17 +17,12 @@ import java.time.LocalDateTime;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class PaymentServiceImpl implements PaymentService {
 
-    @Autowired
-    public PaymentServiceImpl(PaymentCacheDao paymentCacheDao, FeignService feignService) {
-        this.paymentCacheDao = paymentCacheDao;
-        this.feignService = feignService;
-    }
-
-    private PaymentCacheDao paymentCacheDao;
-    private FeignService feignService;
+    private final PaymentCacheDao paymentCacheDao;
+    private final FeignService feignService;
 
     public LastPaymentResponseDto getLastPayment(PaymentRequestDto paymentRequest, AtomicBoolean isCachedDateDeprecated) throws RuntimeException {
         log.info("received cacheDeprecated={} paymentRequest={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }",
@@ -37,7 +33,7 @@ public class PaymentServiceImpl implements PaymentService {
         try {
             PaymentEntity paymentCacheEntity = paymentCacheDao.findPaymentByCardNumber(paymentRequest.getPayerCardNumber());
             if (null != paymentCacheEntity) {
-                boolean isDeprecated = LocalDateTime.now().isAfter(paymentCacheEntity.getDateUpdating());
+                boolean isDeprecated = LocalDateTime.now().minusDays(1).isAfter(paymentCacheEntity.getDateUpdating());
                 isCachedDateDeprecated.set(isDeprecated);
                 if (isCachedDateDeprecated.get()) {
                     lastPaymentResponse = feignService.getLastPayment(paymentRequest);

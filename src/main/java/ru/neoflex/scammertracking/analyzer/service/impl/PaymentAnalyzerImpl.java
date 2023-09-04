@@ -1,5 +1,6 @@
 package ru.neoflex.scammertracking.analyzer.service.impl;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,26 +24,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class PaymentAnalyzerImpl implements PaymentAnalyzer {
 
-    @Autowired
-    public PaymentAnalyzerImpl(FeignService feignService, PaymentService paymentService, PaymentCacheDao paymentCacheDao, PaymentProducer paymentProducer, ModelMapper modelMapper) {
-        this.feignService = feignService;
-        this.paymentService = paymentService;
-        this.paymentCacheDao = paymentCacheDao;
-        this.paymentProducer = paymentProducer;
-        this.modelMapper = modelMapper;
-    }
-
-    private FeignService feignService;
-    private PaymentService paymentService;
-    private PaymentCacheDao paymentCacheDao;
+    private final FeignService feignService;
+    private final PaymentService paymentService;
+    private final PaymentCacheDao paymentCacheDao;
     private final PaymentProducer paymentProducer;
-    private ModelMapper modelMapper;
+    private final ModelMapper modelMapper;
 
-    @Value("${kafka.topic.suspicious-payments}")
+    @Value("${spring.kafka.topic.suspicious-payments}")
     private String suspiciousPaymentsTopic;
-    @Value("${kafka.topic.checked-payments}")
+    @Value("${spring.kafka.topic.checked-payments}")
     private String checkedPaymentsTopic;
 
     @Override
@@ -64,13 +57,7 @@ public class PaymentAnalyzerImpl implements PaymentAnalyzer {
         LastPaymentResponseDto lastPayment = null;
         try {
             lastPayment = paymentService.getLastPayment(paymentRequest, isCacheDeprecated);
-        } catch (BadRequestException e) {
-            paymentResult = modelMapper.map(paymentRequest, PaymentResponseDto.class);
-            paymentResult.setTrusted(false);
-            paymentProducer.sendMessage(suspiciousPaymentsTopic, paymentResult);
-            log.warn("sent message with key={} in topic {}", key, suspiciousPaymentsTopic);
-            return;
-        } catch (NotFoundException e) {
+        } catch (BadRequestException | NotFoundException e) {
             paymentResult = modelMapper.map(paymentRequest, PaymentResponseDto.class);
             paymentResult.setTrusted(false);
             paymentProducer.sendMessage(suspiciousPaymentsTopic, paymentResult);

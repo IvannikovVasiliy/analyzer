@@ -24,7 +24,7 @@ public class PaymentConsumer {
 
     private PaymentAnalyzer paymentAnalyzer;
 
-    @KafkaListener(topics = "${kafka.topic.payments}", containerFactory = "paymentsKafkaListenerContainerFactory")
+    @KafkaListener(topics = "${spring.kafka.topic.payments}", containerFactory = "paymentsKafkaListenerContainerFactory")
     public void consumePayment(@Payload PaymentRequestDto paymentRequest,
                                @Header(KafkaHeaders.RECEIVED_KEY) String key) throws Exception {
         log.info("received key={} paymentRequest={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }",

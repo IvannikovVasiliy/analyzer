@@ -1,5 +1,6 @@
 package ru.neoflex.scammertracking.analyzer.service.impl;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,7 +24,6 @@ import ru.neoflex.scammertracking.analyzer.utils.Constants;
 
 import java.time.LocalDateTime;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
@@ -45,16 +45,20 @@ class PaymentAnalyzerImplTest {
     @InjectMocks
     private PaymentAnalyzerImpl paymentAnalyzer;
 
+    @BeforeEach
+    public void init() {
+        PaymentResponseDto paymentResponse = new PaymentResponseDto(1, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now(),false);
+        when(modelMapper.map(Mockito.any(), Mockito.eq(PaymentResponseDto.class)))
+                .thenReturn(paymentResponse);
+    }
+
     @Test
     public void analyzeConsumeMessageTest() throws Exception {
         PaymentRequestDto paymentRequest = new PaymentRequestDto(Constants.ID, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now());
         LastPaymentResponseDto lastPaymentResponseDto = new LastPaymentResponseDto(1, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now());
-        PaymentResponseDto paymentResponse = new PaymentResponseDto(1, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now(),false);
 
         when(paymentService.getLastPayment(Mockito.any(PaymentRequestDto.class), Mockito.any()))
                 .thenReturn(lastPaymentResponseDto);
-        when(modelMapper.map(Mockito.any(), Mockito.eq(PaymentResponseDto.class)))
-                .thenReturn(paymentResponse);
 
         paymentAnalyzer.analyzeConsumeMessage(String.valueOf(Constants.ID), paymentRequest);
     }
@@ -62,25 +66,18 @@ class PaymentAnalyzerImplTest {
     @Test
     public void analyzeConsumeMessageGetLastPaymentErrorTest() throws Exception {
         PaymentRequestDto paymentRequest = new PaymentRequestDto(Constants.ID, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now());
-        PaymentResponseDto paymentResponse = new PaymentResponseDto(1, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now(),false);
 
         when(paymentService.getLastPayment(Mockito.any(PaymentRequestDto.class), Mockito.any()))
                 .thenThrow(new NotFoundException("The payment not found"));
-        when(modelMapper.map(Mockito.any(), Mockito.eq(PaymentResponseDto.class)))
-                .thenReturn(paymentResponse);
 
         paymentAnalyzer.analyzeConsumeMessage(String.valueOf(Constants.ID), paymentRequest);
     }
 
     @Test
     public void checkSuspiciousTest() throws Exception {
-        PaymentResponseDto paymentResponse = new PaymentResponseDto(1, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now(),false);
         PaymentRequestDto paymentRequest1 = new PaymentRequestDto(Constants.ID, Constants.FAKE_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now());
         PaymentRequestDto paymentRequest2 = new PaymentRequestDto(Constants.ID, Constants.PAYER_CARD_NUMBER, Constants.FAKE_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now());
         PaymentRequestDto paymentRequest3 = new PaymentRequestDto(Constants.ID, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, Constants.FUTURE_DATETIME);
-
-        when(modelMapper.map(Mockito.any(), Mockito.eq(PaymentResponseDto.class)))
-                .thenReturn(paymentResponse);
 
         paymentAnalyzer.analyzeConsumeMessage(String.valueOf(Constants.ID), paymentRequest1);
         paymentAnalyzer.analyzeConsumeMessage(String.valueOf(Constants.ID), paymentRequest2);
@@ -93,8 +90,6 @@ class PaymentAnalyzerImplTest {
         PaymentResponseDto paymentResponse = new PaymentResponseDto(1, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now(),false);
         LastPaymentResponseDto lastPaymentResponseDto = new LastPaymentResponseDto(1, Constants.PAYER_CARD_NUMBER, Constants.RECEIVER_CARD_NUMBER, Constants.COORDINATES, LocalDateTime.now());
 
-        when(modelMapper.map(Mockito.any(), Mockito.eq(PaymentResponseDto.class)))
-                .thenReturn(paymentResponse);
         when(paymentService.getLastPayment(Mockito.any(PaymentRequestDto.class), Mockito.any()))
                 .thenReturn(lastPaymentResponseDto);
         doThrow(BadRequestException.class).when(feignService).savePayment(paymentRequest);

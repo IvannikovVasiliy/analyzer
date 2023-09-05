@@ -6,6 +6,8 @@ import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import ru.neoflex.scammertracking.analyzer.dao.PaymentCacheDao;
 import ru.neoflex.scammertracking.analyzer.domain.dto.LastPaymentResponseDto;
 import ru.neoflex.scammertracking.analyzer.domain.dto.PaymentRequestDto;
@@ -48,7 +50,7 @@ public class PaymentAnalyzerImpl implements PaymentAnalyzer {
 
         boolean isTrusted;
         if (checkSuspicious(paymentRequest)) {
-            log.info("response. Sent message in topic={}", suspiciousPaymentsTopic);
+            log.info("response. Sent message with key={} in topic={}", key, suspiciousPaymentsTopic);
             paymentResult.setTrusted(false);
             paymentProducer.sendMessage(suspiciousPaymentsTopic, paymentResult);
             return;
@@ -79,15 +81,15 @@ public class PaymentAnalyzerImpl implements PaymentAnalyzer {
                 paymentRequest.getId(), paymentRequest.getPayerCardNumber(), paymentRequest.getReceiverCardNumber(), paymentRequest.getCoordinates().getLatitude(), paymentRequest.getCoordinates().getLongitude(), paymentRequest.getDate());
 
         if (paymentRequest.getPayerCardNumber().length() < 6) {
-            log.info("Result validating. The message is suspicious, because the length of payerCardNumber is too short");
+            log.warn("Result validating. The message is suspicious, because the length of payerCardNumber is too short");
             return true;
         }
         if (paymentRequest.getReceiverCardNumber().length() < 6) {
-            log.info("Result validating. The message is suspicious, because the length of receiverCardNumber is too short");
+            log.warn("Result validating. The message is suspicious, because the length of receiverCardNumber is too short");
             return true;
         }
         if (LocalDateTime.now().isBefore(paymentRequest.getDate())) {
-            log.info("Result validating. The message is suspicious, because date of paymentRequest more than current datetime");
+            log.warn("Result validating. The message is suspicious, because date of paymentRequest more than current datetime");
             return true;
         }
 
@@ -96,30 +98,35 @@ public class PaymentAnalyzerImpl implements PaymentAnalyzer {
     }
 
     private void routePayment(boolean isTrusted, AtomicBoolean isCacheDeprecated, PaymentRequestDto paymentRequest, PaymentResponseDto paymentResult) throws Exception {
+        log.info("Received. isTrusted={}, isCacheDeprecated={}.\n PaymentRequest={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }.\n Payment result={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={}, trusted = {}}",
+                isTrusted, isCacheDeprecated, paymentRequest.getId(), paymentRequest.getPayerCardNumber(), paymentRequest.getReceiverCardNumber(), paymentRequest.getCoordinates().getLatitude(), paymentRequest.getCoordinates().getLongitude(), paymentRequest.getDate(), paymentResult.getId(), paymentResult.getPayerCardNumber(), paymentResult.getReceiverCardNumber(), paymentRequest.getCoordinates().getLatitude(), paymentResult.getCoordinates().getLongitude(), paymentResult.getDate(), paymentResult.getTrusted());
+
         if (isTrusted) {
             try {
                 feignService.savePayment(paymentRequest);
             } catch (BadRequestException e) {
                 paymentProducer.sendMessage(suspiciousPaymentsTopic, paymentResult);
-                isTrusted = false;
-                log.info("Response. Sent message in topic={}, because the payment with id={} already exists",
-                        suspiciousPaymentsTopic, paymentRequest.getId());
+                log.info("Response. Sent message in topic={}, BadRequest because of {}",
+                        suspiciousPaymentsTopic, e.getMessage());
+                return;
             } catch (Exception e) {
                 log.info("Internal error");
                 throw new Exception(e.getMessage());
             }
 
-            if (isTrusted) {
-                if (isCacheDeprecated.get()) {
-                    PaymentEntity paymentEntity = new PaymentEntity(paymentRequest.getPayerCardNumber(), paymentRequest.getReceiverCardNumber(),
-                            paymentRequest.getId(),
-                            paymentRequest.getCoordinates().getLatitude(), paymentRequest.getCoordinates().getLongitude(),
-                            paymentRequest.getDate(), LocalDateTime.now());
+            if (isCacheDeprecated.get()) {
+                PaymentEntity paymentEntity = new PaymentEntity(paymentRequest.getPayerCardNumber(), paymentRequest.getReceiverCardNumber(),
+                        paymentRequest.getId(),
+                        paymentRequest.getCoordinates().getLatitude(), paymentRequest.getCoordinates().getLongitude(),
+                        paymentRequest.getDate(), LocalDateTime.now());
+                if (paymentCacheDao.findPaymentByCardNumber(paymentRequest.getPayerCardNumber()) != null) {
                     paymentCacheDao.update(paymentEntity);
+                } else {
+                    paymentCacheDao.save(paymentEntity);
                 }
-                paymentProducer.sendMessage(checkedPaymentsTopic, paymentResult);
-                log.info("response. Sent message in topic={}", checkedPaymentsTopic);
             }
+            paymentProducer.sendMessage(checkedPaymentsTopic, paymentResult);
+            log.info("response. Sent message in topic={}", checkedPaymentsTopic);
         } else {
             paymentProducer.sendMessage(suspiciousPaymentsTopic, paymentResult);
             log.info("Response. Sent message in topic={}, because latitude={}, longitude={}",

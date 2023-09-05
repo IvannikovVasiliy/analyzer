@@ -37,6 +37,8 @@ public class PaymentServiceImpl implements PaymentService {
                 isCachedDateDeprecated.set(isDeprecated);
                 if (isCachedDateDeprecated.get()) {
                     lastPaymentResponse = feignService.getLastPayment(paymentRequest);
+                    log.info("Response. cache is deprecated. Feign service return last payment response={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }",
+                            lastPaymentResponse.getId(), lastPaymentResponse.getPayerCardNumber(), lastPaymentResponse.getReceiverCardNumber(), lastPaymentResponse.getCoordinates().getLatitude(), lastPaymentResponse.getCoordinates().getLongitude(), lastPaymentResponse.getDate());
                 } else {
                     lastPaymentResponse = LastPaymentResponseDto.builder()
                             .id(paymentCacheEntity.getIdPayment())
@@ -45,6 +47,8 @@ public class PaymentServiceImpl implements PaymentService {
                             .coordinates(new Coordinates(paymentCacheEntity.getLatitude(), paymentCacheEntity.getLongitude()))
                             .date(paymentCacheEntity.getDatePayment())
                             .build();
+                    log.info("Response cache. Last payment response={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }",
+                            lastPaymentResponse.getId(), lastPaymentResponse.getPayerCardNumber(), lastPaymentResponse.getReceiverCardNumber(), lastPaymentResponse.getCoordinates().getLatitude(), lastPaymentResponse.getCoordinates().getLongitude(), lastPaymentResponse.getDate());
                 }
             } else {
                 lastPaymentResponse = feignService.getLastPayment(paymentRequest);
@@ -52,11 +56,16 @@ public class PaymentServiceImpl implements PaymentService {
                         paymentRequest.getId(),
                         paymentRequest.getCoordinates().getLatitude(), paymentRequest.getCoordinates().getLongitude(),
                         paymentRequest.getDate(), LocalDateTime.now());
-                paymentCacheDao.save(paymentEntitySave);
+                isCachedDateDeprecated.set(true);
+                log.info("Response. Cache does not exist. Feign service return last payment response={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }",
+                        lastPaymentResponse.getId(), lastPaymentResponse.getPayerCardNumber(), lastPaymentResponse.getReceiverCardNumber(), lastPaymentResponse.getCoordinates().getLatitude(), lastPaymentResponse.getCoordinates().getLongitude(), lastPaymentResponse.getDate());
+                //paymentCacheDao.save(paymentEntitySave);
             }
         } catch (NotFoundException e) {
+            log.error("The payment with cardNumber={} not found", paymentRequest.getPayerCardNumber());
             throw new NotFoundException(e.getMessage());
         } catch (RuntimeException e) {
+            log.error(e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
 

@@ -78,4 +78,18 @@ public class PaymentEntity implements Serializable {
     public void setDateUpdating(LocalDateTime dateUpdating) {
         this.dateUpdating = dateUpdating;
     }
+
+    @Override
+    public String toString() {
+        StringBuilder stringBuilder = new StringBuilder();
+        return stringBuilder.append("paymentEntity: {")
+                .append("\"idPayment\": ").append(idPayment)
+                .append("\"payerCardNumber\": ").append(payerCardNumber)
+                .append("\"receiverCardNumber\": ").append(receiverCardNumber)
+                .append("\"latitude\": ").append(latitude)
+                .append("\"longitude\": ").append(longitude)
+                .append("\"datePayment\": ").append(datePayment)
+                .append("\"dateUpdating\": ").append(dateUpdating)
+                .toString();
+    }
 }

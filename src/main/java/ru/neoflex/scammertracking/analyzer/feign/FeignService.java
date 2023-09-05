@@ -43,12 +43,19 @@ public class FeignService {
     }
 
     public void savePayment(PaymentRequestDto paymentRequest) {
+        log.info("save payment. paymentRequest={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }",
+                paymentRequest.getId(), paymentRequest.getPayerCardNumber(), paymentRequest.getReceiverCardNumber(), paymentRequest.getCoordinates().getLatitude(), paymentRequest.getCoordinates().getLongitude(), paymentRequest.getDate());
+
         try {
             paymentFeignClient.savePayment(paymentRequest);
         } catch (BadRequestException e) {
+            log.error("save payment error BadRequest: {}",  e.getMessage());
             throw new BadRequestException(e.getMessage());
         } catch (RuntimeException e) {
+            log.error("save payment error BadRequest: {}", e.getMessage());
             throw new RuntimeException(e.getMessage());
         }
+
+        log.info("The payment with id={} was saved", paymentRequest.getId());
     }
 }

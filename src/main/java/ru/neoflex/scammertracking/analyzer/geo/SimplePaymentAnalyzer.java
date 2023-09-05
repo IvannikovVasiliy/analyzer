@@ -12,7 +12,7 @@ public class SimplePaymentAnalyzer {
     private static final Logger LOGGER = LoggerFactory.getLogger(SimplePaymentAnalyzer.class);
 
     public static boolean checkPayment(LastPaymentResponseDto lastPayment, PaymentRequestDto currentPayment) {
-        LOGGER.info("received. lastPayment={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }.\n currentPayment={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date={} }",
+        LOGGER.info("Received for check payment. lastPayment={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }.\n currentPayment={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date={} }",
                 lastPayment.getId(), lastPayment.getPayerCardNumber(), lastPayment.getReceiverCardNumber(), lastPayment.getCoordinates().getLatitude(), lastPayment.getCoordinates().getLongitude(), lastPayment.getDate(), currentPayment.getId(), currentPayment.getPayerCardNumber(), currentPayment.getReceiverCardNumber(), currentPayment.getCoordinates().getLatitude(), currentPayment.getCoordinates().getLongitude(), currentPayment.getDate());
 
         LocalDateTime lastPaymentDate = lastPayment.getDate();

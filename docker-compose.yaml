@@ -46,6 +46,8 @@ services:
     build: ./
     ports:
       - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
     depends_on:
       - broker-analyzer
       - redis-analyzer

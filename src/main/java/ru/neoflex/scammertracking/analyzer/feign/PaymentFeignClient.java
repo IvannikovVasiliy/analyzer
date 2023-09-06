@@ -10,7 +10,7 @@ import ru.neoflex.scammertracking.analyzer.domain.dto.LastPaymentRequestDto;
 import ru.neoflex.scammertracking.analyzer.domain.dto.LastPaymentResponseDto;
 import ru.neoflex.scammertracking.analyzer.domain.dto.PaymentRequestDto;
 
-@FeignClient(value = "paymentFeign", url = "http://payment-service:8082/payment", configuration = DecoderConfiguration.class)
+@FeignClient(value = "paymentFeign", url = "${paymentService.hostPort}/payment", configuration = DecoderConfiguration.class)
 public interface PaymentFeignClient {
 
     @PostMapping("/last-payment")

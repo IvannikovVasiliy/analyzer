@@ -97,7 +97,7 @@ public class PaymentAnalyzerImpl implements PaymentAnalyzer {
         return false;
     }
 
-    private void routePayment(boolean isTrusted, AtomicBoolean isCacheDeprecated, PaymentRequestDto paymentRequest, PaymentResponseDto paymentResult) throws Exception {
+    public void routePayment(boolean isTrusted, AtomicBoolean isCacheDeprecated, PaymentRequestDto paymentRequest, PaymentResponseDto paymentResult) throws Exception {
         log.info("Received. isTrusted={}, isCacheDeprecated={}.\n PaymentRequest={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={} }.\n Payment result={ id={}, payerCardNumber={}, receiverCardNumber={}, latitude={}, longitude={}, date ={}, trusted = {}}",
                 isTrusted, isCacheDeprecated, paymentRequest.getId(), paymentRequest.getPayerCardNumber(), paymentRequest.getReceiverCardNumber(), paymentRequest.getCoordinates().getLatitude(), paymentRequest.getCoordinates().getLongitude(), paymentRequest.getDate(), paymentResult.getId(), paymentResult.getPayerCardNumber(), paymentResult.getReceiverCardNumber(), paymentRequest.getCoordinates().getLatitude(), paymentResult.getCoordinates().getLongitude(), paymentResult.getDate(), paymentResult.getTrusted());
 

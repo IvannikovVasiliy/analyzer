@@ -16,7 +16,7 @@ public class PaymentCacheDao {
     private final RedisTemplate redisTemplate;
 
     public PaymentEntity findPaymentByCardNumber(String payerCardNumber) {
-        log.info("find payment by card number={} was saved", payerCardNumber);
+        log.info("find payment by card number={}", payerCardNumber);
         return (PaymentEntity) redisTemplate.opsForHash().get(HASH_KEY, payerCardNumber);
     }
 

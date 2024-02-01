@@ -1,0 +1,60 @@
+version: '3.9'
+
+services:
+  zookeeper-analyzer:
+    image: confluentinc/cp-zookeeper:7.3.2
+    container_name: zookeeper-analyzer
+    ports:
+      - 2181:2181
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - analyzer-network
+
+  broker-analyzer:
+    image: confluentinc/cp-kafka:7.3.2
+    container_name: broker-analyzer
+    ports:
+      - 9092:9092
+    depends_on:
+      - zookeeper-analyzer
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-analyzer:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker-analyzer:29092,PLAINTEXT_INTERNAL://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    networks:
+      - analyzer-network
+
+  redis-analyzer:
+    image: redis/redis-stack-server:7.2.0-v0
+    container_name: redis-analyzer
+    ports:
+      - "6379:6379"
+    networks:
+      - analyzer-network
+
+  analyzer-service:
+    container_name: analyzer-service
+    image: analyzer
+    build: ./
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    depends_on:
+      - broker-analyzer
+      - redis-analyzer
+    networks:
+      - analyzer-network
+
+networks:
+  analyzer-network:
+    name: analyzer-network
+    driver: bridge

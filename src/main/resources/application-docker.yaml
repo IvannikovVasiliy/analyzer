@@ -3,7 +3,7 @@ server:
 
 spring:
   kafka:
-    bootstrapAddress: localhost:9092
+    bootstrapAddress: broker-analyzer:29092
     topic:
       payments: payments
       suspicious-payments: suspicious-payments
@@ -12,11 +12,11 @@ spring:
       groupId: analyzer-group-id
 
 redis:
-  hostName: localhost
+  hostName: redis-analyzer
   port: 6379
 
 paymentService:
-  hostPort: http://localhost:8082
+  hostPort: http://payment-service:8082
 
 feign:
   hystrix:

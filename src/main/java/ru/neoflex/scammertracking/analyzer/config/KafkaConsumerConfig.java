@@ -1,8 +1,6 @@
 package ru.neoflex.scammertracking.analyzer.config;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.serialization.BytesDeserializer;
-import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -21,10 +19,10 @@ import java.util.Map;
 @EnableKafka
 public class KafkaConsumerConfig {
 
-    @Value(value = "${kafka.bootstrapAddress}")
+    @Value(value = "${spring.kafka.bootstrapAddress}")
     private String bootstrapServers;
 
-    @Value(value = "${kafka.consumer.groupId}")
+    @Value(value = "${spring.kafka.consumer.groupId}")
     private String groupId;
 
     @Bean
